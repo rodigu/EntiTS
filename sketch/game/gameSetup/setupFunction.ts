@@ -15,12 +15,7 @@ function setupFunction(manager: GameManager) {
   manager.setUnitSize(HEIGHT * manager.configs.UnitSizeProportion);
 
   loadingScreen(manager);
-  introSplashScreen(manager);
-  gamePlaying(manager);
-  titleScreen(manager);
-  tutorialScreen1(manager);
-  tutorialScreen2(manager);
-  defeatScreen(manager);
+  // Add other screens bellow
 }
 
 function addAssetsToManager(manager: GameManager) {
