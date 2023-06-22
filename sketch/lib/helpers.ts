@@ -1,26 +1,26 @@
-export function throwCustomError(error: Error, message: string): never {
+function throwCustomError(error: Error, message: string): never {
   error.message = message;
   throw error;
 }
 
-export interface Size {
+interface Size {
   width: number;
   height: number;
 }
 
-export interface Position {
+interface PositionCoordinates {
   x: number;
   y: number;
 }
 
-export interface ColorInterface {
+interface ColorInterface {
   red: number;
   green: number;
   blue: number;
   alpha: number;
 }
 
-export class Helpers {
+class Helpers {
   static random(min: number, max: number) {
     return Math.random() * (max - min) + min;
   }
@@ -29,12 +29,20 @@ export class Helpers {
     return Math.floor(Helpers.random(min, max));
   }
 
-  randElement<T>(list: Array<T>): T {
+  static randSign() {
+    return Math.sign(Math.random() - 0.5);
+  }
+
+  static randElement<T>(list: Array<T>): T {
     return list[Helpers.randint(0, list.length)];
+  }
+
+  static randVector(): p5.Vector {
+    return createVector(Math.random() - 0.5, Math.random() - 0.5).normalize();
   }
 }
 
-export class ERRORS {
+class ERRORS {
   static Entity = {
     NO_BEHAVIOR: new Error("Entity has no behavior of given name."),
   };

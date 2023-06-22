@@ -1,28 +1,18 @@
-import { Size, Position, throwCustomError, ERRORS } from "./helpers";
+type BehaviorFunction<T> = (e: T) => void;
+type StateFunction<T> = (e: T) => void;
 
-export type BehaviorFunction<T> = (e: T) => void;
-export type StateFunction<T> = (e: T) => void;
+abstract class EntityFactory {
+  static Events: {
+    [key: string]: any;
+  };
+  static Behaviors: {
+    [key: string]: string;
+  };
+  static AnimationCycles?: { [key: string]: NewCycleInformation };
+  static create: (manager: GameManager) => void;
+}
 
-export class Entity {
-  /**
-   * ## Entity abstract class
-   *
-   * ### Behaviors
-   *
-   * All behaviors inside `Entity.activeBehaviors` are run at `Entity.run()`.
-   *
-   * ### States
-   *
-   * Only `Entity.currentState` is run at `Entity.run()`
-   *
-   * ### Internal Functions
-   *
-   * These are never called by the Entity class or its children.
-   * They are supposed to be called inside of behavior and state functions.
-   *
-   * @date 5/4/2023 - 8:38:52 PM
-   *
-   */
+class Entity {
   readonly id: string;
   readonly layer: number;
 
@@ -30,19 +20,21 @@ export class Entity {
 
   private activeBehaviors: Set<string>;
   private behaviors: Map<string, BehaviorFunction<Entity>>;
-  private states: Map<string, StateFunction<Entity>>;
-  private currentState: string;
   private internalFunctions: Map<string, Function>;
+  private eventListeners: Map<string, (event: any) => void>;
 
+  scale: Size;
   positionVector: p5.Vector;
   size: Size;
   rotation: number;
 
-  reset: () => void;
-  setup: () => void;
-
   static Assets = {
     sample: "sample",
+  };
+
+  static ERROR = {
+    NoBehavior: new Error("Behavior not in entity."),
+    NoState: new Error("State not in entity."),
   };
 
   constructor(
@@ -50,8 +42,8 @@ export class Entity {
     layer: number,
     size = { width: 0, height: 0 },
     position = { x: 0, y: 0 },
-    rotation = 0,
-    tags: string[] = []
+    tags: string[] = [],
+    rotation = 0
   ) {
     this.id = id;
     this.positionVector = createVector(position.x, position.y);
@@ -59,15 +51,27 @@ export class Entity {
     this.rotation = rotation;
     this.layer = layer;
     this.behaviors = new Map();
-    this.states = new Map();
-    this.currentState = "";
     this.activeBehaviors = new Set();
     this.internalFunctions = new Map();
+    this.eventListeners = new Map();
     this.tags = tags;
+    this.scale = { width: 1, height: 1 };
   }
 
-  get position(): Position {
-    return { x: this.positionVector.x, y: this.positionVector.y };
+  addListener<EventData>(eventName: string, func: (event: EventData) => void) {
+    this.eventListeners.set(eventName, func);
+  }
+
+  removeListener(eventName: string) {
+    this.eventListeners.delete(eventName);
+  }
+
+  get position(): p5.Vector {
+    return this.positionVector;
+  }
+
+  setPosition(newVector: p5.Vector) {
+    this.positionVector = newVector;
   }
 
   getFunction(name: string) {
@@ -95,41 +99,40 @@ export class Entity {
     this.activeBehaviors.delete(name);
   }
 
-  addBehavior(name: string, behavior: BehaviorFunction<Entity>) {
+  addBehavior(
+    name: string,
+    behavior: BehaviorFunction<Entity>,
+    doActivate = false
+  ) {
     this.behaviors.set(name, behavior);
+    if (doActivate) this.activateBehavior(name);
   }
 
   removeBehavior(name: string) {
     this.behaviors.delete(name);
   }
 
-  addState(name: string, state: StateFunction<Entity>) {
-    this.states.set(name, state);
-  }
-
-  removeState(name: string) {
-    this.states.delete(name);
-  }
-
-  get state() {
-    return this.currentState;
-  }
-
-  set state(newState: string) {
-    this.currentState = newState;
-  }
-
-  get possibleStates() {
-    return new Set(this.states.keys());
-  }
-
-  run() {
+  run(manager: GameManager) {
     push();
     translate(this.position.x, this.position.y);
     rotate(this.rotation);
-    for (const behavior of this.activeBehaviors)
-      this.behaviors.get(behavior)(this);
-    this.states.get(this.currentState)(this);
+    scale(this.scale.width, this.scale.height);
+
+    for (const [eventName, eventFunc] of this.eventListeners.entries()) {
+      const event = manager.getEvent(eventName);
+      if (event !== undefined) eventFunc(event.options);
+    }
+
+    for (const behavior of this.activeBehaviors) {
+      const behaviorFunction = this.behaviors.get(behavior);
+      if (behaviorFunction === undefined)
+        throwCustomError(
+          Entity.ERROR.NoBehavior,
+          `[${behavior}] doesn't exist in [${this.id}].`
+        );
+      behaviorFunction(this);
+    }
+
     pop();
   }
 }

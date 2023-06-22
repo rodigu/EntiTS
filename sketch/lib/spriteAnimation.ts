@@ -1,27 +1,24 @@
-import { throwCustomError, Size, Position, ColorInterface } from "./helpers";
-import { Tileset } from "./tileset";
+type AnimationCycleName = string;
 
-export type AnimationCycleName = string;
-
-export type SpriteIndex = number;
-export interface SpriteAnimationCycle {
+type SpriteIndex = number;
+interface SpriteAnimationCycle {
   cycle: SpriteIndex[];
   timeBetweenFrames: number;
 }
 
-export interface SpriteAnimationIdentifier {
+interface SpriteAnimationIdentifier {
   name: string;
   idx: SpriteIndex;
   timeSinceFrame: number;
 }
 
-export interface NewCycleInformation {
+interface NewCycleInformation {
   cycleName: AnimationCycleName;
   frames: SpriteIndex[];
   timing: number;
 }
 
-export class SpriteAnimation {
+class SpriteAnimation {
   private current: SpriteAnimationIdentifier;
   private animationCycles: Map<AnimationCycleName, SpriteAnimationCycle>;
   readonly tileset: Tileset;
@@ -33,6 +30,11 @@ export class SpriteAnimation {
   constructor(tileset: Tileset) {
     this.tileset = tileset;
     this.animationCycles = new Map();
+    this.current = {
+      name: "default",
+      idx: 0,
+      timeSinceFrame: 0,
+    };
   }
 
   addCycle(cycle: NewCycleInformation) {
@@ -44,6 +46,7 @@ export class SpriteAnimation {
   }
 
   setCurrentAnimation(name: string) {
+    if (this.current.name === name) return;
     this.current = {
       name,
       idx: 0,
@@ -51,33 +54,32 @@ export class SpriteAnimation {
     };
   }
 
-  draw(position: Position, rotation: number, size: Size, opacity = 255) {
+  draw(size: Size) {
     const animationFrames = this.animationCycles.get(this.current.name)?.cycle;
 
     if (animationFrames === undefined) {
       throwCustomError(
         SpriteAnimation.ERROR.NoCycle,
-        `Animation cycle called [${this.current.name}] doesn't exist in cycles Ma`
+        `Animation cycle called [${this.current.name}] doesn't exist in cycles Map.`
       );
     }
 
     const currentSprite = animationFrames[this.current.idx];
 
     if (animationFrames.length > 1) {
-      if (this.current.timeSinceFrame <= 0) {
-        this.current.timeSinceFrame = this.animationCycles.get(
-          this.current.name
-        ).timeBetweenFrames;
+      if (this.current.timeSinceFrame < 0) {
+        const currentCycle = this.animationCycles.get(this.current.name);
+        if (currentCycle === undefined)
+          throwCustomError(
+            SpriteAnimation.ERROR.NoCycle,
+            `Cycle with name ${this.current.name} does not exist.`
+          );
+        this.current.timeSinceFrame = currentCycle.timeBetweenFrames;
         this.current.idx = (this.current.idx + 1) % animationFrames.length;
       }
       this.current.timeSinceFrame--;
     }
 
-    push();
-    tint(255, opacity);
-    translate(position.x, position.y);
-    rotate(rotation);
     this.tileset.drawTile(currentSprite, { x: 0, y: 0 }, size);
-    pop();
   }
 }
